@@ -29,7 +29,7 @@ deploy-job:
       --restart always
       --label traefik.enable=true
       --label traefik.http.routers.$CI_PROJECT_PATH_SLUG.entrypoints=https
-      --label traefik.http.routers.$CI_PROJECT_PATH_SLUG.rule='Host(`test.xn--299a1v27nvthhjj.com`)'
+      --label traefik.http.routers.$CI_PROJECT_PATH_SLUG.rule='Host(`dimigomeal.2w.vc`)'
       --label traefik.http.routers.$CI_PROJECT_PATH_SLUG.tls=true
       --label traefik.http.routers.$CI_PROJECT_PATH_SLUG.tls.certresolver=cloudflare
       --label traefik.http.routers.$CI_PROJECT_PATH_SLUG.service=$CI_PROJECT_PATH_SLUG
