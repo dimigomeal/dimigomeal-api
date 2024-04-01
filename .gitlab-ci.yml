@@ -33,6 +33,7 @@ deploy-job:
       --label traefik.http.routers.$CI_PROJECT_PATH_SLUG.tls=true
       --label traefik.http.routers.$CI_PROJECT_PATH_SLUG.tls.certresolver=cloudflare
       --label traefik.http.routers.$CI_PROJECT_PATH_SLUG.service=$CI_PROJECT_PATH_SLUG
+      --label traefik.http.routers.$CI_PROJECT_PATH_SLUG.middlewares=all-cors-headers@file
       --label traefik.http.services.$CI_PROJECT_PATH_SLUG.loadbalancer.server.port=8080
       --network proxy
       --volume /data/service/dimigomeal-production/volumes/sqlite/db.db3:/db.db3:ro
