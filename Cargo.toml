@@ -1,0 +1,15 @@
+[package]
+name = "dimigomeal_api"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-web = "4"
+chrono = "0.4.37"
+regex = "1.10.4"
+serde_json = "1.0.115"
+rusqlite = { version = "0.31.0", features = ["bundled"] }
+serde_derive = "1.0.197"
+serde = "1.0.197"
