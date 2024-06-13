@@ -1,8 +1,8 @@
 use actix_web::{
     get, http::StatusCode, web, App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
-use chrono::prelude::*;
-use db::get_meal;
+use chrono::{prelude::*, Duration};
+use db::{get_meal, get_multi_meals};
 use regex::Regex;
 use serde_derive::Deserialize;
 use serde_json::json;
@@ -17,25 +17,58 @@ fn error_response(status_code: StatusCode, message: &str) -> HttpResponse {
         .json(json!({ "error": message }))
 }
 
-async fn process(target_date: &str) -> HttpResponse {
+async fn process(target_date: &str, is_week: bool) -> HttpResponse {
     let conn = create_conn();
-    let meal = get_meal(&conn, target_date);
-    conn.close().unwrap();
+    if is_week {
+        let start_date =
+            NaiveDate::parse_from_str(target_date, "%Y-%m-%d").unwrap() - Duration::days(6);
+        let end_date =
+            NaiveDate::parse_from_str(target_date, "%Y-%m-%d").unwrap() + Duration::days(6);
 
-    match meal {
-        Ok(meal) => {
-            let meal_data = json!({
-                "date": meal.date,
-                "breakfast": meal.breakfast,
-                "lunch": meal.lunch,
-                "dinner": meal.dinner,
-            });
+        let start_date_str = start_date.format("%Y-%m-%d").to_string();
+        let end_date_str = end_date.format("%Y-%m-%d").to_string();
 
-            HttpResponse::Ok()
-                .content_type("application/json; charset=utf-8")
-                .json(meal_data)
+        let meals = get_multi_meals(&conn, &start_date_str, &end_date_str);
+        conn.close().unwrap();
+
+        match meals {
+            Ok(meals) => {
+                let mut meal_list = Vec::new();
+                for meal in meals {
+                    let meal_data = json!({
+                        "date": meal.date,
+                        "breakfast": meal.breakfast,
+                        "lunch": meal.lunch,
+                        "dinner": meal.dinner,
+                    });
+                    meal_list.push(meal_data);
+                }
+
+                HttpResponse::Ok()
+                    .content_type("application/json; charset=utf-8")
+                    .json(meal_list)
+            }
+            Err(_) => error_response(StatusCode::NOT_FOUND, "Meals not found"),
         }
-        Err(_) => error_response(StatusCode::NOT_FOUND, "Meal not found"),
+    } else {
+        let meal = get_meal(&conn, target_date);
+        conn.close().unwrap();
+
+        match meal {
+            Ok(meal) => {
+                let meal_data = json!({
+                    "date": meal.date,
+                    "breakfast": meal.breakfast,
+                    "lunch": meal.lunch,
+                    "dinner": meal.dinner,
+                });
+
+                HttpResponse::Ok()
+                    .content_type("application/json; charset=utf-8")
+                    .json(meal_data)
+            }
+            Err(_) => error_response(StatusCode::NOT_FOUND, "Meal not found"),
+        }
     }
 }
 
@@ -51,11 +84,32 @@ async fn index(req: HttpRequest, data: web::Data<AppState>) -> impl Responder {
             if !data.date_regex.is_match(&query.date) {
                 return error_response(StatusCode::BAD_REQUEST, "Invalid date format");
             }
-            process(&query.date).await
+            process(&query.date, false).await
         }
         Err(_) => {
             let now_date = Utc::now().format("%Y-%m-%d").to_string();
-            process(&now_date).await
+            process(&now_date, false).await
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct WeekParam {
+    date: String,
+}
+
+#[get("/week")]
+async fn week(req: HttpRequest, data: web::Data<AppState>) -> impl Responder {
+    match web::Query::<WeekParam>::from_query(req.query_string().as_ref()) {
+        Ok(query) => {
+            if !data.date_regex.is_match(&query.date) {
+                return error_response(StatusCode::BAD_REQUEST, "Invalid date format");
+            }
+            process(&query.date, true).await
+        }
+        Err(_) => {
+            let now_date = Utc::now().format("%Y-%m-%d").to_string();
+            process(&now_date, true).await
         }
     }
 }
@@ -77,7 +131,7 @@ async fn main() -> std::io::Result<()> {
                 date_regex: date_regex.clone(),
             }))
             .service(index)
-        // .service(date)
+            .service(week)
     })
     .bind(("0.0.0.0", 8080))?
     .run()
